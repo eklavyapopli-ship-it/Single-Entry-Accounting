@@ -6,15 +6,15 @@ const client = new MongoClient(process.env.MONGODB_URI!,  {
         
     }
 );
-export async function GET(request: Request) {
-const { searchParams } = new URL(request.url);
- const path = searchParams.get("path");
+export async function POST(request: Request) {
+
   try {
     await client.connect();
     console.log("connected");
-   const data = await client.db("shop").collection(`${path}`).find({}).toArray()
- return NextResponse.json(
-      { success: true, data },
+    const nameCollection = await request.text()
+    await client.db("shop").createCollection(`${nameCollection}`);
+return NextResponse.json(
+      { message: "heyy" },
       { status: 200 }
     );
   } catch (error) {

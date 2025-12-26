@@ -17,7 +17,7 @@ export default function CreateCollectionPage() {
       setLoading(true);
       setMessage("");
 
-      const res = await fetch("/api/customers", {
+      const res = await fetch("/api/createCustomers", {
         method: "POST",
         headers: {
           "Content-Type": "text/plain",
@@ -31,10 +31,10 @@ export default function CreateCollectionPage() {
         throw new Error(data.error || "Something went wrong");
       }
 
-      setMessage("✅ Collection created successfully!");
+      setMessage(" Collection created successfully!");
       setCollectionName("");
     } catch (err: any) {
-      setMessage(`❌ ${err.message}`);
+      setMessage(` ${err.message}`);
     } finally {
       setLoading(false);
     }
