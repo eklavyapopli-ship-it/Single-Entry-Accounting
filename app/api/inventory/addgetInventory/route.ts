@@ -6,15 +6,15 @@ const client = new MongoClient(process.env.MONGODB_URI!,  {
         
     }
 );
-export async function GET(request: Request) {
-const { searchParams } = new URL(request.url);
- const path = searchParams.get("path");
+export async function POST(request: Request) {
+
   try {
     await client.connect();
     console.log("connected");
-   const data = await client.db("shop").collection(`${path}`).find({}).toArray()
- return NextResponse.json(
-      { success: true, data },
+    const inventoryData = await request.json()
+    await client.db("shop").collection("Inventory").insertOne(inventoryData);
+return NextResponse.json(
+      { message: "heyy" },
       { status: 200 }
     );
   } catch (error) {
@@ -25,16 +25,13 @@ const { searchParams } = new URL(request.url);
     );
   }
 }
-export async function POST(request: Request) {
-const { searchParams } = new URL(request.url);
- const path = searchParams.get("path");
+export async function GET(request: Request) {
   try {
     await client.connect();
     console.log("connected");
-    const transaction = await request.json()
-    await client.db("shop").collection(`${path}`).insertOne(transaction)
-return NextResponse.json(
-      { message: "heyy" },
+   const collections = await client.db("shop").collection("Inventory").find({}).toArray()
+ return NextResponse.json(
+      { success: true, collections },
       { status: 200 }
     );
   } catch (error) {

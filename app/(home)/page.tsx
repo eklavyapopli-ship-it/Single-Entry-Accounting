@@ -56,16 +56,17 @@ export default function HomePage() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-white p-8">
-      <h1 className="text-3xl font-bold mb-10">📘 Single Entry Accounting</h1>
+    <div className="min-h-screen bg-white text-white p-8">
+      <h1 className="text-3xl font-bold mb-10 text-black">📘 Single Entry Accounting</h1>
 
       {/* DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <DashboardCard title="➕ Add New Customer" onClick={() => setShowAddCustomer(true)} />
-        <DashboardCard title="👥 View Customers" onClick={() => setShowViewCustomers(true)} />
-        <DashboardCard title="📦 Inventory Account" />
-        <DashboardCard title="💰 Cash Account" />
-        <DashboardCard title="🧾 Miscellaneous Expenses" />
+        <DashboardCard title=" Add New Customer" onClick={() => setShowAddCustomer(true)} />
+        <DashboardCard title=" View Customers" onClick={() => setShowViewCustomers(true)} />
+        <DashboardCard onClick={()=>{router.push("/inventory")}} title=" Inventory Account" />
+        <DashboardCard onClick={()=>{router.push("/cash")}} title=" Cash Account" />
+        <DashboardCard onClick={()=>{router.push("/creditors")}} title=" Creditors" />
+        <DashboardCard onClick={()=>{router.push("/miscellaneous")}} title=" Miscellaneous Expenses" />
       </div>
 
       {/* ADD CUSTOMER TOASTER */}
