@@ -1,33 +1,44 @@
 import { NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI!);
+
 
 export async function POST(request: Request) {
+  if(process.env.MONGODB_URI){
+  const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
-    const { item_name, quantity_sold, value_sold } = await request.json();
+
+    const { item_name, value_sold } = await request.json();
+
+    if (!item_name) {
+      return NextResponse.json(
+        { error: "Missing fields" },
+        { status: 400 }
+      );
+    }
 
     const collection = client.db("shop").collection("Inventory");
 
-    // Find the inventory item
     const item = await collection.findOne({ item_name });
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    // Calculate new value
-    const newValue = Number(item.value) - Number(value_sold);
-
-    // Update inventory
+   
     await collection.updateOne(
-      { _id: item._id },
-      { $set: { value: newValue } }
+      { item_name },
+      {
+        $inc: {
+          value: -Number(value_sold || 0),
+        },
+      }
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+}
 }

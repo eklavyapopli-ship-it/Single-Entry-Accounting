@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { MongoClient } from "mongodb";
 
+
+export async function POST(request: Request) {
+  if(process.env.MONGODB_URI){
 const client = new MongoClient(process.env.MONGODB_URI!,  {
         
     }
 );
-export async function POST(request: Request) {
-
   try {
     await client.connect();
     console.log("connected");
@@ -25,7 +26,13 @@ return NextResponse.json(
     );
   }
 }
+}
 export async function GET(request: Request) {
+  if(process.env.MONGODB_URI){
+  const client = new MongoClient(process.env.MONGODB_URI!,  {
+        
+    }
+);
   try {
     await client.connect();
     console.log("connected");
@@ -41,5 +48,6 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
 }
 

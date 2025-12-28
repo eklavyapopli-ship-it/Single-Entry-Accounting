@@ -38,16 +38,32 @@ export default function CreditorsPage() {
     fetchEntries();
   }, []);
 
-  const addEntry = async () => {
-    await fetch("/api/creditors", {
+const addEntry = async () => {
+  // 1️⃣ Add entry in creditors
+  await fetch("/api/creditors", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(form),
+  });
+
+  // 2️⃣ IF PAYMENT → update cash
+  if (form.type === "debit") {
+    await fetch("/api/cash", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        date: form.date,
+        type: "payment",
+        amount: form.amount,
+        remarks: form.remarks || "Payment to creditor",
+      }),
     });
-    setShowAdd(false);
-    setForm({ date: "", type: "credit", amount: 0, remarks: "" });
-    fetchEntries();
-  };
+  }
+
+  setShowAdd(false);
+  setForm({ date: "", type: "credit", amount: 0, remarks: "" });
+  fetchEntries();
+};
 
   const deleteEntry = async () => {
     if (!deleteId) return;

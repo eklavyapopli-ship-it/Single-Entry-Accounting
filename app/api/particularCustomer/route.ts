@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI!,  {
+
+export async function GET(request: Request) {
+  if(process.env.MONGODB_URI){
+  const client = new MongoClient(process.env.MONGODB_URI!,  {
         
     }
 );
-export async function GET(request: Request) {
 const { searchParams } = new URL(request.url);
  const path = searchParams.get("path");
   try {
@@ -25,7 +27,13 @@ const { searchParams } = new URL(request.url);
     );
   }
 }
+}
 export async function POST(request: Request) {
+  if(process.env.MONGODB_URI){
+  const client = new MongoClient(process.env.MONGODB_URI!,  {
+        
+    }
+);
 const { searchParams } = new URL(request.url);
  const path = searchParams.get("path");
   try {
@@ -44,5 +52,6 @@ return NextResponse.json(
       { status: 500 }
     );
   }
+}
 }
 

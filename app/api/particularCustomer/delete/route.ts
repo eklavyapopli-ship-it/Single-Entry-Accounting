@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { MongoClient, ObjectId } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI!);
+
 
 export async function POST(request: Request) {
+  if(process.env.MONGODB_URI){
+
+
+  const client = new MongoClient(process.env.MONGODB_URI!);
   const { searchParams } = new URL(request.url);
   const path = searchParams.get("path");
 
@@ -27,4 +31,5 @@ export async function POST(request: Request) {
     console.log(error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+    }
 }

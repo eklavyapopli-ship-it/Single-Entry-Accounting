@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 /* ---------- TYPES ---------- */
 type CashType = "comes in" | "payment";
+type CashSource = "" | "sale";
+type PaymentFor = "" | "purchase";
 
 interface CashEntry {
   _id: string;
@@ -11,10 +13,21 @@ interface CashEntry {
   type: CashType;
   amount: number;
   remarks?: string;
+  source?: CashSource;
+  paymentFor?: PaymentFor;
+  itemName?: string;
+  quantity?: number;
 }
 
+interface InventoryItem {
+  _id: string;
+  item_name: string;
+}
+
+/* ---------- PAGE ---------- */
 export default function CashPage() {
   const [entries, setEntries] = useState<CashEntry[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -24,9 +37,13 @@ export default function CashPage() {
     type: "comes in" as CashType,
     amount: 0,
     remarks: "",
+    source: "" as CashSource,
+    paymentFor: "" as PaymentFor,
+    itemName: "",
+    quantity: 1,
   });
 
-  /* ---------- FETCH ---------- */
+  /* ---------- FETCH CASH ---------- */
   const fetchCash = async () => {
     setLoading(true);
     try {
@@ -40,28 +57,65 @@ export default function CashPage() {
     }
   };
 
+  /* ---------- FETCH INVENTORY ---------- */
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch("/api/inventory/addgetInventory");
+      const json = await res.json();
+      setInventory(json.collections || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchCash();
+    fetchInventory();
   }, []);
 
   /* ---------- ADD / UPDATE ---------- */
   const saveCash = async () => {
+    const payload = { ...form };
+
     if (editId) {
       await fetch("/api/cash", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _id: editId, ...form }),
+        body: JSON.stringify({ _id: editId, ...payload }),
       });
     } else {
       await fetch("/api/cash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
     }
+
+    /* INVENTORY UPDATE (OPTIONAL) */
+    if (form.itemName && form.quantity > 0) {
+    await fetch("/api/inventory/updateInventory", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    item_name: form.itemName,
+    value_sold: form.amount, // or qty * rate
+  }),
+});
+
+    }
+
     setShowAdd(false);
     setEditId(null);
-    setForm({ date: "", type: "comes in", amount: 0, remarks: "" });
+    setForm({
+      date: "",
+      type: "comes in",
+      amount: 0,
+      remarks: "",
+      source: "",
+      paymentFor: "",
+      itemName: "",
+      quantity: 1,
+    });
     fetchCash();
   };
 
@@ -79,6 +133,7 @@ export default function CashPage() {
   const totalCredit = entries
     .filter((e) => e.type === "comes in")
     .reduce((sum, e) => sum + e.amount, 0);
+
   const totalDebit = entries
     .filter((e) => e.type === "payment")
     .reduce((sum, e) => sum + e.amount, 0);
@@ -128,7 +183,16 @@ export default function CashPage() {
                     <button
                       onClick={() => {
                         setEditId(e._id);
-                        setForm({ date: e.date, type: e.type, amount: e.amount, remarks: e.remarks || "" });
+                        setForm({
+                          date: e.date,
+                          type: e.type,
+                          amount: e.amount,
+                          remarks: e.remarks || "",
+                          source: e.source || "",
+                          paymentFor: e.paymentFor || "",
+                          itemName: e.itemName || "",
+                          quantity: e.quantity || 1,
+                        });
                         setShowAdd(true);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 text-xs m-2"
@@ -149,11 +213,27 @@ export default function CashPage() {
         </div>
       )}
 
-      {/* ADD / EDIT MODAL */}
+      {/* MODAL */}
       {showAdd && (
-        <Modal title={editId ? "Edit Cash Entry" : "Add Cash Entry"} onClose={() => { setShowAdd(false); setEditId(null); }}>
+        <Modal title={editId ? "Edit Cash Entry" : "Add Cash Entry"} onClose={() => setShowAdd(false)}>
           <DarkInput label="Date" type="date" value={form.date} onChange={(v: string) => setForm({ ...form, date: v })} />
           <DarkSelect label="Type" value={form.type} onChange={(v: string) => setForm({ ...form, type: v as CashType })} options={["comes in", "payment"]} />
+
+          {form.type === "comes in" && (
+            <DarkSelect label="Cash Source (optional)" value={form.source} onChange={(v: string) => setForm({ ...form, source: v as CashSource })} options={["sale"]} />
+          )}
+
+          {form.type === "payment" && (
+            <DarkSelect label="Payment For (optional)" value={form.paymentFor} onChange={(v: string) => setForm({ ...form, paymentFor: v as PaymentFor })} options={["purchase"]} />
+          )}
+
+          {(form.source === "sale" || form.paymentFor === "purchase") && (
+            <>
+              <DarkSelect label="Item" value={form.itemName} onChange={(v: string) => setForm({ ...form, itemName: v })} options={inventory.map((i) => i.item_name)} />
+              <DarkInput label="Quantity" type="number" value={form.quantity} onChange={(v: string) => setForm({ ...form, quantity: +v })} />
+            </>
+          )}
+
           <DarkInput label="Amount" type="number" value={form.amount} onChange={(v: string) => setForm({ ...form, amount: +v })} />
           <DarkInput label="Remarks" value={form.remarks} onChange={(v: string) => setForm({ ...form, remarks: v })} />
 
@@ -166,7 +246,7 @@ export default function CashPage() {
   );
 }
 
-/* ---------- UI HELPERS ---------- */
+/* ---------- UI HELPERS (UNCHANGED) ---------- */
 function SummaryCard({ title, value, color }: any) {
   return (
     <div className="bg-slate-900 p-4 rounded-xl">

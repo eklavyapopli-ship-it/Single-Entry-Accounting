@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI!);
 
 export async function GET() {
+if(process.env.MONGODB_URI){
+const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
     const data = await client.db("shop").collection("Miscellaneous").find({}).toArray();
@@ -13,8 +14,11 @@ export async function GET() {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+}
 
 export async function POST(request: Request) {
+if(process.env.MONGODB_URI){
+const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
     const body = await request.json();
@@ -25,8 +29,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+}
 
 export async function DELETE(request: Request) {
+  if(process.env.MONGODB_URI){
+
+const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
     const body = await request.json();
@@ -37,8 +45,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+}
 
 export async function PUT(request: Request) {
+  if(process.env.MONGODB_URI){
+
+const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
     const body = await request.json();
@@ -52,4 +64,5 @@ export async function PUT(request: Request) {
     console.log(error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+}
 }

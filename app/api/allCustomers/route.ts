@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI!,  {
-        
+
+export async function GET(request: Request) {
+  if(process.env.MONGODB_URI){
+ const client = new MongoClient(process.env.MONGODB_URI!,  {
     }
 );
-export async function GET(request: Request) {
 const excludedCollections = ['Cash', 'Inventory', "Miscellaneous"];
   try {
     await client.connect();
@@ -26,4 +26,6 @@ const excludedCollections = ['Cash', 'Inventory', "Miscellaneous"];
       { status: 500 }
     );
   }
+  }
+ 
 }
