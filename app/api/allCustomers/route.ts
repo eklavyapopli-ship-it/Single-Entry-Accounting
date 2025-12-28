@@ -6,15 +6,17 @@ const client = new MongoClient(process.env.MONGODB_URI!,  {
         
     }
 );
-export async function POST(request: Request) {
-
+export async function GET(request: Request) {
+const excludedCollections = ['Cash', 'Inventory', "Miscellaneous"];
   try {
     await client.connect();
     console.log("connected");
-    const nameCollection = await request.json()
-    await client.db("shop").createCollection(`${nameCollection}`);
-return NextResponse.json(
-      { message: "heyy" },
+   const collections = await client.db("shop").listCollections({}).toArray();
+   const data = collections.filter(collection => {
+    return !excludedCollections.includes(collection.name);
+});
+ return NextResponse.json(
+      { success: true, data },
       { status: 200 }
     );
   } catch (error) {
