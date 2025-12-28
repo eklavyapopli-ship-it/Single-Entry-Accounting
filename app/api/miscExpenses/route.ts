@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 
 
 export async function GET() {
@@ -23,6 +23,7 @@ const client = new MongoClient(process.env.MONGODB_URI!);
     await client.connect();
     const body = await request.json();
     await client.db("shop").collection("Miscellaneous").insertOne(body);
+    await client.db("shop").collection("Cash").insertOne({type:body.type, amount: body.amount})
     return NextResponse.json({ success: true });
   } catch (error) {
     console.log(error);
@@ -38,7 +39,7 @@ const client = new MongoClient(process.env.MONGODB_URI!);
   try {
     await client.connect();
     const body = await request.json();
-    await client.db("shop").collection("Miscellaneous").deleteOne({ _id: body._id });
+    await client.db("shop").collection("Miscellaneous").deleteOne({ _id: new ObjectId(body._id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.log(error);

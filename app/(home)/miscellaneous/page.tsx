@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /* ---------- TYPES ---------- */
-type TransactionType = "debit" | "credit";
+type TransactionType = "payment" | "comes in";
 
 interface ExpenseEntry {
   _id: string;
@@ -21,14 +21,14 @@ export default function MiscellaneousPage() {
 
   const [form, setForm] = useState({
     date: "",
-    type: "debit" as TransactionType,
+    type: "payment" as TransactionType,
     amount: 0,
     remarks: "",
   });
 
   const fetchEntries = async () => {
     setLoading(true);
-    const res = await fetch("/api/Miscellaneous");
+    const res = await fetch("/api/miscExpenses");
     const json = await res.json();
     setEntries(json.data || []);
     setLoading(false);
@@ -39,19 +39,19 @@ export default function MiscellaneousPage() {
   }, []);
 
   const addEntry = async () => {
-    await fetch("/api/Miscellaneous", {
+    await fetch("/api/miscExpenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
     setShowAdd(false);
-    setForm({ date: "", type: "debit", amount: 0, remarks: "" });
+    setForm({ date: "", type: "payment", amount: 0, remarks: "" });
     fetchEntries();
   };
 
   const deleteEntry = async () => {
     if (!deleteId) return;
-    await fetch("/api/Miscellaneous", {
+    await fetch("/api/miscExpenses", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ _id: deleteId }),
@@ -61,11 +61,11 @@ export default function MiscellaneousPage() {
   };
 
   const totalDebit = entries
-    .filter((e) => e.type === "debit")
+    .filter((e) => e.type === "payment")
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalCredit = entries
-    .filter((e) => e.type === "credit")
+    .filter((e) => e.type === "comes in")
     .reduce((sum, e) => sum + e.amount, 0);
 
   const netExpense = totalDebit - totalCredit;
