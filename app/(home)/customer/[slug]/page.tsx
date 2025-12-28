@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 /* ---------- TYPES ---------- */
-type TransactionType = "on_cash" | "on_credit" | "purchase_return";
+type TransactionType = "on_credit" | "purchase_return" | "credit_payment";
 
 interface CustomerEntry {
   _id: string;
@@ -15,6 +15,9 @@ interface CustomerEntry {
   rate: number;
   amount: number;
   remarks?: string;
+  payment_amount?: number;
+  discount_allowed?: number;
+  payment_mode?: string;
 }
 
 interface InventoryItem {
@@ -38,10 +41,13 @@ export default function CustomerPage() {
   const [form, setForm] = useState({
     item_name: "",
     date: "",
-    type: "on_cash" as TransactionType,
+    type: "on_credit" as TransactionType,
     quantity: 1,
     rate: 0,
     remarks: "",
+    payment_amount: 0,
+    discount_allowed: 0,
+    payment_mode: "cash",
   });
 
   /* ---------- FETCH ---------- */
@@ -79,20 +85,51 @@ export default function CustomerPage() {
   const totalCredit = entries
     .filter((e) => e.type === "on_credit")
     .reduce((sum, e) => sum + e.amount, 0);
-
-  const totalCash = entries
-    .filter((e) => e.type === "on_cash")
-    .reduce((sum, e) => sum + e.amount, 0);
+  const totaldisc = entries.reduce((sum,e)=>sum+(e.discount_allowed??0),0)
 
   const totalReturn = entries
     .filter((e) => e.type === "purchase_return")
     .reduce((sum, e) => sum + e.amount, 0);
 
+  const totalPayment = entries
+    .filter((e) => e.type === "credit_payment")
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const netBalance = totalCredit - totalReturn - totaldisc  - totalPayment;
+
   /* ---------- ADD ---------- */
   const addTransaction = async () => {
-    const transactionAmount = form.quantity * form.rate;
+    const transactionAmount =
+      form.type === "credit_payment"
+        ? form.payment_amount
+        : form.quantity * form.rate;
 
-    // 1️⃣ Add transaction
+    // Validation for purchase return
+    if (form.type === "purchase_return") {
+      const soldEntry = entries.find(
+        (e) => e.item_name === form.item_name && e.type === "on_credit"
+      );
+      if (!soldEntry) {
+        alert(
+          "This item has not been sold on Credit. Cannot process purchase return."
+        );
+        return;
+      }
+      if (form.quantity > soldEntry.quantity) {
+        alert(
+          `Return quantity cannot exceed sold quantity (${soldEntry.quantity}).`
+        );
+        return;
+      }
+    }
+
+    // Validation for credit payment
+    if (form.type === "credit_payment" && transactionAmount > netBalance) {
+      alert("Payment cannot exceed outstanding balance");
+      return;
+    }
+
+    // 1️⃣ Add transaction to customer ledger
     await fetch(
       `/api/particularCustomer?path=${encodeURIComponent(customerName)}`,
       {
@@ -105,26 +142,47 @@ export default function CustomerPage() {
       }
     );
 
-    // 2️⃣ Update inventory
-    const isReturn = form.type === "purchase_return" ? -1 : 1;
-    await fetch("/api/inventory/updateInventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        item_name: form.item_name,
-        value_sold: transactionAmount * isReturn,
-        quantity_sold: form.quantity * isReturn,
-      }),
-    });
+    // 2️⃣ Update inventory for sales and purchase return
+    if (form.type !== "credit_payment") {
+      const isReturn = form.type === "purchase_return" ? -1 : 1;
+      await fetch("/api/inventory/updateInventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_name: form.item_name,
+          value_sold: transactionAmount * isReturn,
+          quantity_sold: form.quantity * isReturn,
+        }),
+      });
+    }
+
+    // 3️⃣ Update cash account if payment mode is cash
+    if (form.type === "credit_payment" && form.payment_mode === "cash") {
+      await fetch("/api/cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: form.date,
+          type:"comes in",
+          amount: transactionAmount - form.discount_allowed,
+          remarks: `Credit Payment${
+            form.discount_allowed ? ` (Discount: ₹${form.discount_allowed})` : ""
+          }`,
+        }),
+      });
+    }
 
     setShowAdd(false);
     setForm({
       item_name: "",
       date: "",
-      type: "on_cash",
+      type: "on_credit",
       quantity: 1,
       rate: 0,
       remarks: "",
+      payment_amount: 0,
+      discount_allowed: 0,
+      payment_mode: "cash",
     });
 
     fetchCustomerData();
@@ -148,17 +206,19 @@ export default function CustomerPage() {
       }
     );
 
-    // 2️⃣ Restore inventory
-    const isReturn = transaction.type === "purchase_return" ? -1 : 1;
-    await fetch("/api/inventory/updateInventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        item_name: transaction.item_name,
-        value_sold: -transaction.amount * isReturn,
-        quantity_sold: -transaction.quantity * isReturn,
-      }),
-    });
+    // 2️⃣ Restore inventory if needed
+    if (transaction.type !== "credit_payment") {
+      const isReturn = transaction.type === "purchase_return" ? -1 : 1;
+      await fetch("/api/inventory/updateInventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_name: transaction.item_name,
+          value_sold: -transaction.amount * isReturn,
+          quantity_sold: -transaction.quantity * isReturn,
+        }),
+      });
+    }
 
     setDeleteId(null);
     fetchCustomerData();
@@ -166,14 +226,12 @@ export default function CustomerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-8">
+    <div className="min-h-screen bg-white text-black p-8">
       {/* HEADER */}
       <div className="flex justify-between items-start mb-8">
         <div>
           <h1 className="text-2xl font-bold">👤 {customerName}</h1>
-          <p className="text-slate-400 text-sm">
-            Single Entry Customer Ledger
-          </p>
+          <p className="text-slate-400 text-sm">Credit Customer Ledger</p>
         </div>
 
         <button
@@ -192,18 +250,23 @@ export default function CustomerPage() {
           color="text-red-400"
         />
         <SummaryCard
-          title="Total Cash"
-          value={`₹ ${totalCash.toLocaleString()}`}
-          color="text-green-400"
-        />
-        <SummaryCard
           title="Total Purchase Return"
           value={`₹ ${totalReturn.toLocaleString()}`}
           color="text-blue-400"
         />
         <SummaryCard
+          title="Total Payments"
+          value={`₹ ${totalPayment.toLocaleString()}`}
+          color="text-green-400"
+        />
+        <SummaryCard
           title="Net Balance"
-          value={`₹ ${(totalCredit - totalCash - totalReturn).toLocaleString()}`}
+          value={`₹ ${netBalance.toLocaleString()}`}
+          color="text-yellow-400"
+        />
+        <SummaryCard
+          title="Discount Allowed"
+          value={`₹ ${totaldisc}`}
           color="text-yellow-400"
         />
       </div>
@@ -238,9 +301,7 @@ export default function CustomerPage() {
                   <Td>{e.item_name}</Td>
                   <Td>{e.quantity}</Td>
                   <Td>₹ {e.rate}</Td>
-                  <Td className="font-medium">
-                    ₹ {e.amount.toLocaleString()}
-                  </Td>
+                  <Td className="font-medium">₹ {e.amount.toLocaleString()}</Td>
                   <Td>
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -255,7 +316,7 @@ export default function CustomerPage() {
                         ? "Credit"
                         : e.type === "purchase_return"
                         ? "Purchase Return"
-                        : "Cash"}
+                        : "Credit Payment"}
                     </span>
                   </Td>
                   <Td>{e.remarks || "-"}</Td>
@@ -295,20 +356,57 @@ export default function CustomerPage() {
             onChange={(v: string) =>
               setForm({ ...form, type: v as TransactionType })
             }
-            options={["on_cash", "on_credit", "purchase_return"]}
+            options={["on_credit", "purchase_return", "credit_payment"]}
           />
-          <DarkInput
-            label="Quantity"
-            type="number"
-            value={form.quantity}
-            onChange={(v: string) => setForm({ ...form, quantity: +v })}
-          />
-          <DarkInput
-            label="Rate"
-            type="number"
-            value={form.rate}
-            onChange={(v: string) => setForm({ ...form, rate: +v })}
-          />
+
+          {/* Credit Payment Fields */}
+          {form.type === "credit_payment" && (
+            <>
+              <DarkInput
+                label="Payment Amount"
+                type="number"
+                value={form.payment_amount}
+                onChange={(v: string) =>
+                  setForm({ ...form, payment_amount: +v })
+                }
+              />
+              <DarkInput
+                label="Discount Allowed"
+                type="number"
+                value={form.discount_allowed}
+                onChange={(v: string) =>
+                  setForm({ ...form, discount_allowed: +v })
+                }
+              />
+              <DarkSelect
+                label="Payment Mode"
+                value={form.payment_mode}
+                onChange={(v: string) =>
+                  setForm({ ...form, payment_mode: v })
+                }
+                options={["cash", "bank", "other"]}
+              />
+            </>
+          )}
+
+          {/* Sales / Purchase Return Fields */}
+          {form.type !== "credit_payment" && (
+            <>
+              <DarkInput
+                label="Quantity"
+                type="number"
+                value={form.quantity}
+                onChange={(v: string) => setForm({ ...form, quantity: +v })}
+              />
+              <DarkInput
+                label="Rate"
+                type="number"
+                value={form.rate}
+                onChange={(v: string) => setForm({ ...form, rate: +v })}
+              />
+            </>
+          )}
+
           <DarkInput
             label="Remarks"
             value={form.remarks}
